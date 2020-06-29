@@ -1,0 +1,28 @@
+{% extends "/admin/base.html" %}
+
+{% block title %}Already logged in{% endblock title %}
+
+{% block content %}
+<div class="jumbotron">
+    <div class="container">
+        <div class="row">
+            <div class="col">
+            </div>
+
+            <div class="col-6 text-center">
+                <h1 class="display-4">You are already logged in</h1>
+
+                <p>You can't access this page if you are already logged in. Please logout if you want to use this page.</p>
+
+                <form method="post" action="{{ url_for('profile.auth.logout') }}">
+                    <button class="btn btn-primary" type="submit">Logout</button>
+                </form>
+            </div>
+
+            <div class="col">
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock content %}

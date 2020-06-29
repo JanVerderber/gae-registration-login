@@ -8,10 +8,10 @@ def send_email(email_params):
     if is_local():
         # localhost (not really sending the email)
 
-        print("***********************")
-        print("You are on localhost, so no e-mail will be sent. This is message:")
-        print(email_params["message_body"])
-        print("+++++++++++++++++++++++")
+        logging.warning("***********************")
+        logging.warning("You are on localhost, so no e-mail will be sent. This is message:")
+        logging.warning(email_params["message_body"])
+        logging.warning("+++++++++++++++++++++++")
     else:
         # production (sending the email via SendGrid)
 

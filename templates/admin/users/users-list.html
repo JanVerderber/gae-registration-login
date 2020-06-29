@@ -1,0 +1,32 @@
+{% extends "/admin/base.html" %}
+
+{% block title %}Users list{% endblock title %}
+
+{% block content %}
+<div class="jumbotron">
+    <div class="container">
+        <div class="row">
+            <div class="col">
+            </div>
+
+            <div class="col-6">
+                <h1 class="display-4">Users list</h1>
+
+                <p>{{ login_message }}</p><br>
+
+                <ul>
+                    {% for user in users %}
+                        <li>E-mail: {{ user.email }}</li>
+                        <br><br>
+                    {% endfor %}
+                </ul>
+
+            </div>
+
+            <div class="col">
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock content %}
