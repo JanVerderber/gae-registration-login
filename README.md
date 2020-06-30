@@ -23,3 +23,6 @@ If you are not using PyCharm to start the app, use this command: python main.py
 - Multiple sessions so users can have more sessions (Login from different clients)
 - CSRF protection
 - The app checks session and CSRF tokens for expiration
+
+## Where are enviroment variables?
+- Google App Engine doesn't have enviroment variables. They should be stored inside Settings model in Datastore database. Simply deploy this app to GAE and use Datastore manager to insert your enviroment variables. Settings include variable "name" for example: "SECRET_KEY", and "value": "dhzaiz21z317bdhak9". By default this app needs 3 enviroment variables to work with GAE: PROD_ENV (this should be something like "production_GAE"), SendGrid-Mail (your SendGrid API key) and APP_EMAIL (the e-mail with which you will send app e-mails).
