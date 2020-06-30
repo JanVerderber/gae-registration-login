@@ -1,6 +1,6 @@
-import os
 import logging
 from utils.environment import is_local
+from models.settings import Settings
 from sendgrid import SendGridAPIClient, Mail
 
 
@@ -16,10 +16,11 @@ def send_email(email_params):
         # production (sending the email via SendGrid)
 
         # SendGrid setup
-        sg = SendGridAPIClient(api_key=os.getenv("SendGrid-Mail"))
+        sg_api_key = Settings.get_by_name("SendGrid-Mail")
+        sg = SendGridAPIClient(api_key=sg_api_key.value)
 
         # E-mail setup
-        sender_email = os.getenv("APP_EMAIL")
+        sender_email = Settings.get_by_name("APP_EMAIL").value
         recipient = email_params["recipient_email"]
         subject = email_params["message_title"]
         msg_html = email_params["message_html"]

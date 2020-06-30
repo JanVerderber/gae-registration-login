@@ -207,69 +207,77 @@ class User(ndb.Model):
     # generates and sends verification code
     @classmethod
     def send_verification_code(cls, user):
+        if not user:
+            return False
+
         with client.context():
-            if user:
-                # generate verification code
-                code = secrets.token_hex()
+            # generate verification code
+            code = secrets.token_hex()
 
-                # store it in user
-                user.verification_code = hashlib.sha256(str.encode(code)).hexdigest()
-                user.verification_code_expiration = datetime.datetime.now() + datetime.timedelta(hours=1)
-                user.put()
+            # store it in user
+            user.verification_code = hashlib.sha256(str.encode(code)).hexdigest()
+            user.verification_code_expiration = datetime.datetime.now() + datetime.timedelta(hours=1)
+            user.put()
 
-                url = request.url_root
-                complete_url = url + "email-verification/" + code
+            url = request.url_root
+            complete_url = url + "email-verification/" + code
 
-                message_title = "Verify e-mail address - Moderately simple registration login"
+            message_title = "Verify e-mail address - Moderately simple registration login"
 
-                message_body = "Thank you for registering at our web app! Please verify your e-mail by " \
-                               "clicking on the link below:\n" \
-                               + complete_url + "\n"
+            message_body = "Thank you for registering at our web app! Please verify your e-mail by " \
+                           "clicking on the link below:\n" \
+                           + complete_url + "\n"
 
-                message_html = "<p>Thank you for registering at our web app! Please verify your e-mail by " \
-                               "clicking on the link below:<br> " \
-                               + "<a href='" + complete_url + "' target='_blank'>" + complete_url + "</a></p>"
+            message_html = "<p>Thank you for registering at our web app! Please verify your e-mail by " \
+                           "clicking on the link below:<br> " \
+                           + "<a href='" + complete_url + "' target='_blank'>" + complete_url + "</a></p>"
 
-                send_email(email_params={"recipient_email": user.email, "message_title": message_title,
-                                         "message_body": message_body, "message_html": message_html})
+        send_email(email_params={"recipient_email": user.email, "message_title": message_title,
+                                 "message_body": message_body, "message_html": message_html})
 
-                return True
+        return True
 
     # verifies verification code
     @classmethod
     def verify_verification_code(cls, code):
+        if not code:
+            return False
+
         with client.context():
-            if code:
-                # verify verification code
-                code_hash = hashlib.sha256(str.encode(code)).hexdigest()
+            email_ready = False
 
-                user = cls.query(cls.verification_code == code_hash).get()
+            # verify verification code
+            code_hash = hashlib.sha256(str.encode(code)).hexdigest()
 
-                if not user:
-                    return False, "That verification code is not valid."
+            user = cls.query(cls.verification_code == code_hash).get()
 
-                if user.verification_code_expiration > datetime.datetime.now():
-                    user.verification_code = ""
-                    user.verification_code_expiration = datetime.datetime.min
-                    user.put()
+            if not user:
+                return False, "That verification code is not valid."
 
-                    url = request.url_root
+            if user.verification_code_expiration > datetime.datetime.now():
+                user.verification_code = ""
+                user.verification_code_expiration = datetime.datetime.min
+                user.put()
 
-                    message_title = "E-mail address confirmed - Moderately simple registration login"
+                url = request.url_root
 
-                    message_body = "Your e-mail has been confirmed! Thank you, you can now login with " \
-                                   "the link below:\n" + url + "\n"
+                message_title = "E-mail address confirmed - Moderately simple registration login"
 
-                    message_html = "<p>Your e-mail has been confirmed! Thank you, you can now login " \
-                                   "with the link below:" \
-                                   "<br><a href='" + url + "' target='_blank'>" + url + "</a></p>"
+                message_body = "Your e-mail has been confirmed! Thank you, you can now login with " \
+                               "the link below:\n" + url + "\n"
 
-                    send_email(email_params={"recipient_email": user.email, "message_title": message_title,
-                                             "message_body": message_body, "message_html": message_html})
+                message_html = "<p>Your e-mail has been confirmed! Thank you, you can now login " \
+                               "with the link below:" \
+                               "<br><a href='" + url + "' target='_blank'>" + url + "</a></p>"
 
-                    return True, "Success"
-                else:
-                    return False, "That verification code is not valid."
+                email_ready = True
+
+        if email_ready:
+            send_email(email_params={"recipient_email": user.email, "message_title": message_title,
+                                     "message_body": message_body, "message_html": message_html})
+            return True, "Success"
+        else:
+            return False, "That verification code is not valid."
 
     # RETRIEVE DATA:
     # gets ID from itself

@@ -1,8 +1,13 @@
-import os
+from models.settings import Settings
 
 
 def is_local():
-    if os.getenv('PROD_ENV', '').startswith('production'):
+    setting = Settings.get_by_name("PROD_ENV")
+
+    if not setting:
+        return True
+
+    if setting.value:
         return False
     else:
         return True
