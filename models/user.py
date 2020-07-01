@@ -203,6 +203,15 @@ class User(ndb.Model):
 
         return True
 
+    # deletes all sessions from user (when password is changed)
+    @classmethod
+    def delete_all_user_sessions(cls, user):
+        with client.context():
+            user.sessions = []
+            user.put()
+
+        return True
+
     # VERIFICATION CODES:
     # generates and sends verification code
     @classmethod
@@ -216,7 +225,7 @@ class User(ndb.Model):
 
             # store it in user
             user.verification_code = hashlib.sha256(str.encode(code)).hexdigest()
-            user.verification_code_expiration = datetime.datetime.now() + datetime.timedelta(hours=1)
+            user.verification_code_expiration = datetime.datetime.now() + datetime.timedelta(hours=24)
             user.put()
 
             url = request.url_root
@@ -225,11 +234,11 @@ class User(ndb.Model):
             message_title = "Verify e-mail address - Moderately simple registration login"
 
             message_body = "Thank you for registering at our web app! Please verify your e-mail by " \
-                           "clicking on the link below:\n" \
+                           "clicking on the link below (you have 24 hours):\n" \
                            + complete_url + "\n"
 
             message_html = "<p>Thank you for registering at our web app! Please verify your e-mail by " \
-                           "clicking on the link below:<br> " \
+                           "clicking on the link below (you have 24 hours):<br> " \
                            + "<a href='" + complete_url + "' target='_blank'>" + complete_url + "</a></p>"
 
         send_email(email_params={"recipient_email": user.email, "message_title": message_title,
@@ -278,6 +287,18 @@ class User(ndb.Model):
             return True, "Success"
         else:
             return False, "That verification code is not valid."
+
+    # FOR CRON JOBS:
+    # remove users that did not verify their e-mail in one day period
+    @classmethod
+    def remove_unverified_users(cls):
+        with client.context():
+            users_keys = cls.query(cls.verification_code != "",
+                                   cls.verification_code_expiration < datetime.datetime.now()).fetch(
+                keys_only=True)
+
+            ndb.delete_multi(keys=users_keys)
+            return True
 
     # RETRIEVE DATA:
     # gets ID from itself

@@ -1,3 +1,4 @@
+import datetime
 import bcrypt
 from flask import request, render_template, redirect, url_for, make_response
 from models.user import User
@@ -33,7 +34,8 @@ def login(**params):
                     token = User.generate_session(user)
 
                     response = make_response(redirect(url_for("admin.users.users_list")))
-                    response.set_cookie('my-simple-app-session', token)
+                    expire_date = datetime.datetime.now() + datetime.timedelta(days=30)
+                    response.set_cookie('my-simple-app-session', token, expires=expire_date)
 
                     return response
                 else:

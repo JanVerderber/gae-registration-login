@@ -1,0 +1,4 @@
+cron:
+- description: "remove users that did not verify their e-mail in one day period"
+  url: /cron/remove_unverified_users_cron
+  schedule: every 24 hours

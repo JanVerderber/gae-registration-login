@@ -60,12 +60,17 @@ def change_password(**params):
             user = User.get_user_by_email(current_email)
 
             if user and bcrypt.checkpw(current_password.encode("utf-8"), user.password.encode("utf-8")):
+                # update password for this user
                 success, message = User.update_password(user, new_password)
 
                 if success:
                     # if password was changed, logout the user so he has to login again
                     # prepare the response
                     message = "Your password has been changed, please login again."
+
+                    # delete all sessions from this user
+                    User.delete_all_user_sessions(user)
+
                     response = redirect(url_for("public.main.login", info_message=message))
 
                     # remove session cookie

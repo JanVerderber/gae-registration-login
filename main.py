@@ -1,4 +1,5 @@
 from flask import Flask
+from cron.remove_unverified_users import remove_unverified_users_cron
 from handlers.admin import users
 from handlers.public import main as public_main, auth
 from handlers.profile.auth import logout, change_password
@@ -32,6 +33,10 @@ app.add_url_rule(rule="/logout", endpoint="profile.auth.logout", view_func=logou
 # CHANGE USER PASSWORD
 app.add_url_rule(rule="/change-password", endpoint="profile.auth.change_password", view_func=change_password,
                  methods=["GET", "POST"])
+
+
+# CRON JOBS
+app.add_url_rule(rule="/cron/remove_unverified_users_cron", view_func=remove_unverified_users_cron, methods=["GET"])
 
 
 # FOR RUNNING THE APP
