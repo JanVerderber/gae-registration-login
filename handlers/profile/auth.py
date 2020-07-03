@@ -60,26 +60,41 @@ def change_password(**params):
             user = User.get_user_by_email(current_email)
 
             if user and bcrypt.checkpw(current_password.encode("utf-8"), user.password.encode("utf-8")):
-                # update password for this user
-                success, message = User.update_password(user, new_password)
+                confirmation_code_sent = User.change_password_code(user, new_password)
 
-                if success:
-                    # if password was changed, logout the user so he has to login again
-                    # prepare the response
-                    message = "Your password has been changed, please login again."
-
-                    # delete all sessions from this user
-                    User.delete_all_user_sessions(user)
-
-                    response = redirect(url_for("public.main.login", info_message=message))
-
-                    # remove session cookie
-                    response.set_cookie('my-simple-app-session', '', expires=0)
-
-                    return response
+                if confirmation_code_sent:
+                    params["current_user"] = user
+                    return render_template("public/auth/change_password_confirmation.html", **params)
                 else:
                     params["error_message"] = message
                     return render_template("public/auth/error_page.html", **params)
             else:
                 params["error_message"] = "You entered the wrong old credentials, please try again."
                 return render_template("public/auth/error_page.html", **params)
+
+
+def change_password_confirmation(code, **params):
+    if request.method == "GET":
+        success, user, new_password_hash, message = User.change_password_code_confirmation(code)
+
+        if success:
+            # update password for this user
+            update_success, update_message = User.update_password(user, new_password_hash)
+
+            if update_success:
+                # if password was changed, logout the user so he has to login again
+                # prepare the response
+                login_message = "Your password has been changed, please login again."
+
+                # delete all sessions from this user
+                User.delete_all_user_sessions(user)
+
+                response = redirect(url_for("public.main.login", info_message=login_message))
+
+                # remove session cookie
+                response.set_cookie('my-simple-app-session', '', expires=0)
+
+                return response
+        else:
+            params["error_message"] = message
+            return render_template("public/auth/error_page.html", **params)

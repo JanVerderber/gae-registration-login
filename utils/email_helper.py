@@ -1,37 +1,26 @@
-import logging
-from utils.environment import is_local
+import os
 from models.settings import Settings
-from sendgrid import SendGridAPIClient, Mail
+from flask import request, render_template, url_for
+from utils.task_helper import run_background_task
 
 
-def send_email(email_params):
-    if is_local():
-        # localhost (not really sending the email)
+def send_email(recipient_email, email_template, email_params, email_subject, non_html_message, sender_email=None):
+    if not sender_email:
+        if Settings.get_by_name("APP_EMAIL"):
+            sender_email = Settings.get_by_name("APP_EMAIL").value  # reads from settings
+        else:
+            sender_email = "info@your.webapp"
 
-        logging.warning("***********************")
-        logging.warning("You are on localhost, so no e-mail will be sent. This is message:")
-        logging.warning(email_params["message_body"])
-        logging.warning("+++++++++++++++++++++++")
-    else:
-        # production (sending the email via SendGrid)
+    # send web app URL data by default to email template
+    email_params["app_root_url"] = request.url_root
 
-        # SendGrid setup
-        sg_api_key = Settings.get_by_name("SendGrid-Mail")
-        sg = SendGridAPIClient(api_key=sg_api_key.value)
+    # render the email HTML body
+    email_body = render_template(email_template, **email_params)
 
-        # E-mail setup
-        sender_email = Settings.get_by_name("APP_EMAIL").value
-        recipient = email_params["recipient_email"]
-        subject = email_params["message_title"]
-        msg_html = email_params["message_html"]
+    # params sent to the background task
+    payload = {"recipient_email": recipient_email, "email_subject": email_subject, "sender_email": sender_email,
+               "email_body": email_body, "non_html_message": non_html_message}
 
-        email_message = Mail(from_email=sender_email, to_emails=recipient, subject=subject,
-                             html_content=msg_html)
-
-        try:
-            response = sg.send(email_message)
-            logging.info(response.status_code)
-            logging.info(response.body)
-            logging.info(response.headers)
-        except Exception as e:
-            logging.error(str(e))
+    run_background_task(relative_path=url_for("tasks.send_email_task.send_email_via_sendgrid"),
+                        payload=payload, queue="email", project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
+                        location="europe-west1")

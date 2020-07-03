@@ -1,0 +1,14 @@
+{% extends "/emails/base.html" %}
+
+{% block preheader %}Verify your e-mail with this link.{% endblock preheader %}
+
+{% block message %}
+<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+    Hello,
+</p>
+
+<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+    Thank you for registering at our web app! Please verify your e-mail by clicking on the link below (you have 24 hours):<br>
+    <a href="{{ email_url }}" target="_blank">CLICK HERE</a>
+</p>
+{% endblock message %}

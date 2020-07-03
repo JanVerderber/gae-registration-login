@@ -30,11 +30,23 @@ class CSRFToken(ndb.Model):
 
 class User(ndb.Model):
     email = ndb.StringProperty()
-    verification_code = ndb.StringProperty()
-    verification_code_expiration = ndb.DateTimeProperty()
     password = ndb.StringProperty()
 
-    # connection with other two classes
+    # Verification
+    verification_code = ndb.StringProperty()
+    verification_code_expiration = ndb.DateTimeProperty()
+    verified = ndb.BooleanProperty(default=False)
+
+    # Password change
+    password_change_code = ndb.StringProperty()
+    password_change_code_expiration = ndb.DateTimeProperty()
+    new_password = ndb.StringProperty()
+
+    # Forgot password
+    password_forgot_code = ndb.StringProperty()
+    password_forgot_code_expiration = ndb.DateTimeProperty()
+
+    # Connection with other two classes
     sessions = ndb.StructuredProperty(Session, repeated=True)
     csrf_tokens = ndb.StructuredProperty(CSRFToken, repeated=True)
 
@@ -67,17 +79,164 @@ class User(ndb.Model):
                 return False, user, "User with this email address is already registered. Please go to the " \
                                     "Login page and try to log in."
 
+    # CHANGE USER PASSWORD
+    # sends confirmation link to e-mail to verify identity
+    @classmethod
+    def change_password_code(cls, user, new_password):
+        if not user:
+            return False
+
+        with client.context():
+            # generate confirmation code
+            code = secrets.token_hex()
+
+            # store it in user
+            user.password_change_code = hashlib.sha256(str.encode(code)).hexdigest()
+            user.password_change_code_expiration = datetime.datetime.now() + datetime.timedelta(hours=24)
+
+            # store new password in temporary user field
+            hashed = bcrypt.hashpw(new_password.encode('utf8'), bcrypt.gensalt())
+            password_hash = hashed.decode('utf8')
+            user.new_password = password_hash
+
+            user.put()
+
+            url = request.url_root
+            complete_url = url + "change-password-confirmation/" + code
+
+            message_title = "Change password confirmation - Moderately simple registration login"
+
+            message_body = "You have requested to change your password at our app. Confirm this action by " \
+                           "clicking on the link below (you have 24 hours):\n" \
+                           + complete_url + "\n" + "\n\n If this was not you, please contact us immediately."
+
+        send_email(recipient_email=user.email, email_template="emails/change_password_code.html",
+                   email_params={"email_url": complete_url}, email_subject=message_title,
+                   non_html_message=message_body)
+
+        return True
+
+    # confirms the change password code
+    @classmethod
+    def change_password_code_confirmation(cls, code):
+        if not code:
+            return False
+
+        with client.context():
+            email_ready = False
+
+            # verify verification code
+            code_hash = hashlib.sha256(str.encode(code)).hexdigest()
+
+            user = cls.query(cls.password_change_code == code_hash).get()
+
+            if not user:
+                return False, "That confirmation code is not valid."
+
+            if user.password_change_code_expiration > datetime.datetime.now():
+                user.password_change_code = ""
+                user.password_change_code_expiration = datetime.datetime.min
+                user.put()
+
+                new_password_hash = user.new_password
+                url = request.url_root
+
+                message_title = "Your password has been changed - Moderately simple registration login"
+
+                message_body = "Your password has been successfully changed! Thank you, you can now login with " \
+                               "the link below:\n" + url + "\n\n If this was not you, please contact us immediately."
+
+                email_ready = True
+
+        if email_ready:
+            send_email(recipient_email=user.email, email_template="emails/password_changed.html",
+                       email_params={"email_url": url}, email_subject=message_title,
+                       non_html_message=message_body)
+            return True, user, new_password_hash, "Success"
+        else:
+            return False, "That confirmation code is not valid."
+
+    # sends confirmation link to e-mail for forgotten password
+    @classmethod
+    def forgot_password_code(cls, user):
+        if not user:
+            return False
+
+        with client.context():
+            # generate confirmation code
+            code = secrets.token_hex()
+
+            # store it in user
+            user.password_forgot_code = hashlib.sha256(str.encode(code)).hexdigest()
+            user.password_forgot_code_expiration = datetime.datetime.now() + datetime.timedelta(hours=24)
+            user.put()
+
+            url = request.url_root
+            complete_url = url + "forgot-password-confirmation/" + code
+
+            message_title = "Forgot password confirmation - Moderately simple registration login"
+
+            message_body = "You have requested to change your password at our app. Confirm this action by " \
+                           "clicking on the link below (you have 24 hours):\n" \
+                           + complete_url + "\n" + "\n\n If this was not you, please ignore this e-mail."
+
+        send_email(recipient_email=user.email, email_template="emails/change_password_code.html",
+                   email_params={"email_url": complete_url}, email_subject=message_title,
+                   non_html_message=message_body)
+
+        return True
+
+    # confirms the forgot password code
+    @classmethod
+    def forgot_password_code_confirmation(cls, code):
+        if not code:
+            return False
+
+        with client.context():
+            # verify verification code
+            code_hash = hashlib.sha256(str.encode(code)).hexdigest()
+
+            user = cls.query(cls.password_forgot_code == code_hash).get()
+
+            if not user:
+                return False, user, "That confirmation code is not valid."
+
+            if user.password_forgot_code_expiration > datetime.datetime.now():
+                return True, user, "Success"
+
+    # sends e-mail that password was reset from forgot password
+    @classmethod
+    def forgot_password_success(cls, user):
+        if not user:
+            return False
+
+        with client.context():
+            # delete temporary fields
+            user.password_forgot_code = ""
+            user.password_forgot_code_expiration = datetime.datetime.min
+            user.put()
+
+            url = request.url_root
+
+            message_title = "Your password has been changed - Moderately simple registration login"
+
+            message_body = "Your password has been successfully changed! Thank you, you can now login with " \
+                           "the link below:\n" + url + "\n\n If this was not you, please contact us immediately."
+
+        send_email(recipient_email=user.email, email_template="emails/password_changed.html",
+                   email_params={"email_url": url}, email_subject=message_title,
+                   non_html_message=message_body)
+
+        return True
+
     # updates user password
     @classmethod
-    def update_password(cls, user, new_password):
+    def update_password(cls, user, new_password_hash):
         with client.context():
-            if user and new_password:
-                # use bcrypt to hash the new password
-                hashed = bcrypt.hashpw(new_password.encode('utf8'), bcrypt.gensalt())
-                password_hash = hashed.decode('utf8')
-
-                # set new password
-                user.password = password_hash
+            if user and new_password_hash:
+                # set new password (that is already hashed) and delete temporary field
+                user.password = new_password_hash
+                user.new_password = ""
                 user.put()
 
                 return True, "Successfully changed password"
@@ -237,12 +396,9 @@ class User(ndb.Model):
                            "clicking on the link below (you have 24 hours):\n" \
                            + complete_url + "\n"
 
-            message_html = "<p>Thank you for registering at our web app! Please verify your e-mail by " \
-                           "clicking on the link below (you have 24 hours):<br> " \
-                           + "<a href='" + complete_url + "' target='_blank'>" + complete_url + "</a></p>"
-
-        send_email(email_params={"recipient_email": user.email, "message_title": message_title,
-                                 "message_body": message_body, "message_html": message_html})
+        send_email(recipient_email=user.email, email_template="emails/verification_code.html",
+                   email_params={"email_url": complete_url}, email_subject=message_title,
+                   non_html_message=message_body)
 
         return True
 
@@ -275,15 +431,12 @@ class User(ndb.Model):
                 message_body = "Your e-mail has been confirmed! Thank you, you can now login with " \
                                "the link below:\n" + url + "\n"
 
-                message_html = "<p>Your e-mail has been confirmed! Thank you, you can now login " \
-                               "with the link below:" \
-                               "<br><a href='" + url + "' target='_blank'>" + url + "</a></p>"
-
                 email_ready = True
 
         if email_ready:
-            send_email(email_params={"recipient_email": user.email, "message_title": message_title,
-                                     "message_body": message_body, "message_html": message_html})
+            send_email(recipient_email=user.email, email_template="emails/verification_success.html",
+                       email_params={"email_url": url}, email_subject=message_title,
+                       non_html_message=message_body)
             return True, "Success"
         else:
             return False, "That verification code is not valid."

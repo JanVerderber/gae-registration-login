@@ -6,3 +6,4 @@ sendgrid
 requests
 bleach
 mock
+google-cloud-tasks

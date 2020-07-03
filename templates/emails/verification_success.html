@@ -1,0 +1,14 @@
+{% extends "/emails/base.html" %}
+
+{% block preheader %}Successfully verified your e-mail.{% endblock preheader %}
+
+{% block message %}
+<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+    Hello,
+</p>
+
+<p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; margin-bottom: 15px;">
+    Your e-mail has been confirmed! Thank you, you can now login with the link below:<br>
+    <a href="{{ email_url }}" target='_blank'>LOGIN HERE</a>
+</p>
+{% endblock message %}
